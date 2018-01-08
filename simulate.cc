@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
         ancestry.simulate();
         ancestry.print_normalised_sfs();
         //ancestry.print_fixed_s(50);
-        //print_normalised_branch_lengths();
+        //ancestry.print_normalised_branch_lengths();
         ancestry.reset(argv[1]);
     }
     return 1;
