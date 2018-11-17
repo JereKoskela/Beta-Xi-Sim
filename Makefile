@@ -1,4 +1,4 @@
-CFLAGS=-Wall -Wextra -O3
+CFLAGS= -Wall -Wextra -O3
 LDFLAGS= -lgsl -lgslcblas -lconfig++
 CC = g++
 

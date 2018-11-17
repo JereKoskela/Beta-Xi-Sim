@@ -16,9 +16,8 @@ struct Branch {
            const double right, double leaf_time_) 
     : locus(locus_), island(island_), selective_type(-1), virtual_flag(0),
     leaf_time(leaf_time_), parents(), children(), incoming(), checking(), 
-    order(), ancestral_blocks(2)
+    order(), ancestral_blocks(2, left)
     {
-        ancestral_blocks[0] = left;
         ancestral_blocks[1] = right;
     }
     
@@ -26,10 +25,8 @@ struct Branch {
         // returns 1 if point x lies inside ancestral material (denoted by an
         // interval (ancestral_blocks[k], ancestral_blocks[k + 1]) for some
         // even k. returns 0 otherwise.
-        int ret = -1;
-        if (x < ancestral_blocks[0] || x > ancestral_blocks.back()) {
-            ret = 0;
-        } else {
+        int ret = 0;
+        if (x > ancestral_blocks[0] && x < ancestral_blocks.back()) {
             int k = 0;
             while (x > ancestral_blocks[k]) {
                 k++;

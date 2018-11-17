@@ -2,6 +2,7 @@
 #define ANCESTRY
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstdlib>
 #include <gsl/gsl_matrix.h>
@@ -181,8 +182,8 @@ struct Ancestry {
     // =======================================================================
     
     Ancestry(const char *filename)
-    : number_of_loci(), number_of_islands(), model(), sample_size(0), alpha(),
-    sim_time(0.0), growth_rates(), selection_rates(), mutation_rates(), 
+    : number_of_loci(), number_of_islands(), sample_size(0), alpha(), 
+    growth_rate(), sim_time(0.0), selection_rates(), mutation_rates(), 
     selective_mutation_rates(), migration_rates(), recombination_rates(), 
     relative_population_sizes(), branches(0), active_branches(0), 
     break_points() {
@@ -215,20 +216,15 @@ struct Ancestry {
         double effective_population_size, per_site_mutation_probability;
         libconfig::Config cfg;
         cfg.readFile(filename);
-        cfg.lookupValue("model", model);
         cfg.lookupValue("alpha", alpha);
         cfg.lookupValue("effective_population_size", 
                         effective_population_size);
+        cfg.lookupValue("growth_rate", growth_rate);
+        growth_rate *= pow(effective_population_size, alpha - 1.0);
         cfg.lookupValue("per_site_mutation_probability", 
                         per_site_mutation_probability);
         number_of_islands = cfg.getRoot()["sample_sizes"].getLength();
         number_of_loci = cfg.getRoot()["locus_lengths"].getLength();
-        if (model != 0) {
-            // population growth model has linear scaling which is implemented 
-            // by setting alpha = 2. In the Xi-coalescent model (model = 0), 
-            // alpha is as specified in the config file.
-            alpha = 2.0;
-        }
         Branch tmp(0, 0, 0.0, 1.0, 0.0);
         double tmp_double;
         for (int i = 0; i < number_of_islands; i++) {
@@ -246,7 +242,6 @@ struct Ancestry {
                 within_island_tmp[l] = within_locus_tmp;
             }
             active_branches.push_back(within_island_tmp);
-            growth_rates.push_back(cfg.getRoot()["growth_rates"][i]);
             relative_population_sizes.push_back(
                 cfg.getRoot()["relative_population_sizes"][i]);
             tmp_double = cfg.getRoot()["selection_strengths"][i];
@@ -308,96 +303,46 @@ struct Ancestry {
         return;
     }
     
-    double acceptance_prob(const double impact, const int island, 
-                           const double pairs_on_island) {
-        double ret = 0.0, k;
-        double m = (double)(number_of_loci);
-        if (impact > 1e-4) {
-            for (int i = 0; i < number_of_loci; i++) {
-                k = (double)(active_branches[island][i].size());
-                if (k * log(1.0 - impact) > log(k) + log(impact) + (k - 1.0) 
-                                                * log(1.0 - impact)) {
-                    ret += k * log(1.0 - impact) - 2.0 * log(impact) / m 
-                    + log(1.0 + exp(log(k) + log(impact) - log(1.0 - impact)));
-                } else {
-                    ret += log(k) + log(impact) + (k - 1.0) * log(1.0 - impact)
-                            - 2.0 * log(impact) / m + log(exp(log(1.0 - impact)
-                            - log(k) - log(impact)) + 1.0);
-                }
+    double acceptance_prob(const double impact, const int island) {
+        double ret = 1.0;
+        if (alpha < 2.0) {
+            double n = 0.0;
+            double pairs = (double)(active_branches[island][0].size()
+                * (active_branches[island][0].size() - 1)) / 2.0;
+            for (int i = 1; i < number_of_loci; i++) {
+                pairs += (double)(active_branches[island][i].size() 
+                    * (active_branches[island][i].size() - 1)) / 2.0;
             }
-            ret = exp(-log(pairs_on_island) - 2.0 * log(impact)) 
-                    - exp(ret - log(pairs_on_island));
-        } else {
-            std::vector<double> tmp_hap(number_of_loci, -1.0);
-            double tmp_max = -std::numeric_limits<double>::max();
-            for (int i = 0; i < number_of_loci; i++) {
-                if (active_branches[island][i].size() > 2) {
-                    tmp_hap[i] = gsl_sf_lnchoose(
-                                    active_branches[island][i].size(), 3);
-                    tmp_max = fmax(tmp_max, tmp_hap[i]);
+            if (impact > 1e-4) {
+                ret = 0.0;
+                for (int i = 0; i < number_of_loci; i++) {
+                    n = (double)(active_branches[island][i].size() - 1);
+                    ret += n * log(1.0 - impact) + log(1.0 + n * impact);
                 }
-            }
-            for (int i = 0; i < number_of_loci; i++) {
-                if (tmp_hap[i] > -0.5) {
-                    ret += exp(tmp_hap[i] - tmp_max);
+                ret = exp(log(1.0 - exp(ret)) - 2.0 * log(impact) 
+                    - log(pairs));
+            } else {
+                ret = impact * (double)(active_branches[island][0].size()
+                    * (active_branches[island][0].size() - 1)
+                    * (active_branches[island][0].size() - 2)) 
+                    / (3.0 * pairs);
+                for (int i = 1; i < number_of_loci; i++) {
+                    ret += impact * (double)(active_branches[island][i].size()
+                        * (active_branches[island][i].size() - 1)
+                        * (active_branches[island][i].size() - 2)) 
+                        / (3.0 * pairs);
                 }
+                ret = 1.0 - ret;
             }
-            ret = tmp_max + log(ret);
-            ret = 1.0 - exp(log(2.0) + ret - log(pairs_on_island) 
-                    + log(impact));
         }
         return ret;
     }
     
-    void simulate_migration_event(const double total_rate) {
-        int island = 0;
-        double coin = gsl_rng_uniform(gen);
-        double ub = 0.0;
-        double branches_on_island;
-        do {
-            branches_on_island = 0.0;
-            for (int l = 0; l < number_of_loci; l++) {
-                branches_on_island += (double)active_branches[island]
-                                                                [l].size();
-                for (int k = 0; k < number_of_islands; k++) {
-                    ub += (double)active_branches[island][l].size() 
-                        * migration_rates[k] * migration_probability(k, island) 
-                        * relative_population_sizes[k] 
-                        / (relative_population_sizes[island] * total_rate);
-                }
-            }
-            if (ub < coin) {
-                island++;
-            }
-        } while (ub < coin);
-        int locus = 0;
-        coin = gsl_rng_uniform(gen);
-        ub = (double)active_branches[island][locus].size() 
-            / branches_on_island;
-        while (ub < coin) {
-            locus++;
-            ub += (double)active_branches[island][locus].size() 
-                / branches_on_island;
-        }
+    void simulate_migration_event(const int island, const int target_island, 
+                                  const int locus) {
         int child_index = floor((double)(active_branches[island][locus].size())
             * gsl_rng_uniform(gen));
         int child = active_branches[island][locus][child_index];
-        double total_prob = 0.0;
-        for (int i = 0; i < number_of_islands; i++) {
-            total_prob += relative_population_sizes[i] * migration_rates[i] 
-                * migration_probability(i, island);
-        }
-        int target_island = 0;
-        coin = gsl_rng_uniform(gen);
-        ub = 0.0;
-        do {
-            ub += relative_population_sizes[target_island] 
-                * migration_rates[target_island] 
-                * migration_probability(target_island, island) / total_prob;
-            if (ub < coin) {
-                target_island++;
-            }
-        } while (ub < coin);
         Branch tmp(locus, target_island, 0.0, 1.0, sim_time);
         tmp.children.push_back(child);
         tmp.ancestral_blocks = branches[child].ancestral_blocks;
@@ -417,30 +362,7 @@ struct Ancestry {
         return;
     }
     
-    void simulate_selection_event(const double total_rate) {
-        int island = 0;
-        double coin = gsl_rng_uniform(gen);
-        double number_on_island = 0.0;
-        for (int j = 0; j < number_of_loci; j++) {
-            number_on_island += (double)active_branches[island][j].size();
-        }
-        double ub = number_on_island * max_fitness(island) / total_rate;
-        while (ub < coin) {
-            island++;
-            number_on_island = 0.0;
-            for (int j = 0; j < number_of_loci; j++) {
-                number_on_island += (double)active_branches[island][j].size();
-            }
-            ub += number_on_island * max_fitness(island) / total_rate;
-        }
-        int locus = 0;
-        coin = gsl_rng_uniform(gen);
-        ub = (double)active_branches[island][locus].size() / number_on_island;
-        while (ub < coin) {
-            locus++;
-            ub += (double)active_branches[island][locus].size() 
-                / number_on_island;
-        }
+    void simulate_selection_event(const int island, const int locus) {
         int child_index = floor((double)(active_branches[island][locus].size())
             * gsl_rng_uniform(gen));
         int child = active_branches[island][locus][child_index];
@@ -479,38 +401,12 @@ struct Ancestry {
         return;
     }
     
-    void simulate_recombination_event(const double total_rate) {
-        int island = 0;
-        double rate_on_island = 0.0;
-        for (int l = 0; l < number_of_loci; l++) {
-            rate_on_island += gsl_matrix_get(per_island_locus_recomb_rates, 
-                                             island, l);
-        }
-        double coin = gsl_rng_uniform(gen);
-        double upper_bound = rate_on_island / total_rate;
-        while (upper_bound < coin) {
-            island++;
-            rate_on_island = 0.0;
-            for (int l = 0; l < number_of_loci; l++) {
-                rate_on_island += gsl_matrix_get(per_island_locus_recomb_rates, 
-                                                 island, l);
-            }
-            upper_bound += rate_on_island / total_rate;
-        }
-        coin = gsl_rng_uniform(gen);
-        int locus = 0;
-        upper_bound = gsl_matrix_get(per_island_locus_recomb_rates, island, 
-                                     locus) / rate_on_island;
-        while (upper_bound < coin) {
-            locus++;
-            upper_bound += gsl_matrix_get(per_island_locus_recomb_rates, 
-                                          island, locus) / rate_on_island;
-        }
+    void simulate_recombination_event(const int island, const int locus) {
         int child_ind = 0;
-        upper_bound = recombination_rate(active_branches[island][locus]
+        double upper_bound = recombination_rate(active_branches[island][locus]
             [child_ind]) / gsl_matrix_get(per_island_locus_recomb_rates, 
                                           island, locus);
-        coin = gsl_rng_uniform(gen);
+        double coin = gsl_rng_uniform(gen);
         while (upper_bound < coin) {
             child_ind++;
             upper_bound += recombination_rate(active_branches[island][locus]
@@ -561,512 +457,216 @@ struct Ancestry {
                             + recombination_rate(branches[child].parents[1]));
         return;
     }
-    
-    void simulate_xi_event() {
-        double number_of_pairs = 0.0;
-        double total_coalescence_rate = 0.0;
-        double total_migration_rate = 0.0;
-        double total_selection_rate = 0.0;
-        double total_recombination_rate = 0.0;
-        for (int i = 0; i < number_of_islands; i++) {
-            for (int j = 0; j < number_of_loci; j++) {
-                number_of_pairs += (double)(active_branches[i][j].size() 
-                    * (active_branches[i][j].size() - 1)) / 2.0;
-                total_coalescence_rate += 2.0 
-                    * (double)(active_branches[i][j].size() 
-                    * (active_branches[i][j].size() - 1)) 
-                    / relative_population_sizes[i];
-                for (int k = 0; k < number_of_islands; k++) {
-                    total_migration_rate += (double)active_branches[i]
-                                                                    [j].size()
-                            * migration_rates[k] * migration_probability(k, i) 
-                            * relative_population_sizes[k] 
-                            / relative_population_sizes[i];
-                }
-                total_selection_rate += (double)active_branches[i][j].size() 
-                                        * max_fitness(i);
-                total_recombination_rate += gsl_matrix_get(
-                    per_island_locus_recomb_rates, i, j);
-            }
-        }
-        double total_rate = total_coalescence_rate + total_selection_rate 
-            + total_migration_rate + total_recombination_rate;
-        sim_time += gsl_ran_exponential(gen, 1.0 / total_rate);
-        double coin = gsl_rng_uniform(gen);
-        if (coin < total_coalescence_rate / total_rate) {
-            int island = 0;
-            double coin = gsl_rng_uniform(gen);
-            double upper_bound = 0.0;
+
+    void simulate_coalescence_event(const int island, const int locus) {
+        double impact = sample_impact();
+        if (gsl_rng_uniform(gen) < acceptance_prob(impact, island)) {
+            int size_at_locus = 0;
             for (int l = 0; l < number_of_loci; l++) {
-                upper_bound += 2.0 * (double)(active_branches[island][l].size()
-                    * (active_branches[island][l].size() - 1)) 
-                    / (relative_population_sizes[island] 
-                    * total_coalescence_rate);
-            }
-            while (upper_bound < coin) {
-                island++;
-                for (int l = 0; l < number_of_loci; l++) {
-                    upper_bound += 2.0 * (double)(active_branches[island]
-                        [l].size() * (active_branches[island][l].size() - 1)) 
-                        / (relative_population_sizes[island] 
-                        * total_coalescence_rate);
+                if (l == locus) {
+                    size_at_locus = 2 + gsl_ran_binomial(gen, impact, 
+                        active_branches[island][l].size() - 2);
+                } else {
+                    size_at_locus = gsl_ran_binomial(gen, impact, 
+                        active_branches[island][l].size());
                 }
-            }
-            double impact = sample_impact();
-            double pairs_on_island = (double)(active_branches[island][0].size()
-                * (active_branches[island][0].size() - 1)) / 2.0;
-            for (int i = 1; i < number_of_loci; i++) {
-                pairs_on_island += (double)(active_branches[island][i].size()
-                    * (active_branches[island][i].size() - 1)) / 2.0;
-            }
-            if (gsl_rng_uniform(gen) < acceptance_prob(impact, island, 
-                pairs_on_island)) {
-                int loc = 0;
-                coin = gsl_rng_uniform(gen);
-                upper_bound = (double)(active_branches[island][loc].size() 
-                    * (active_branches[island][loc].size() - 1)) 
-                    / (2.0 * pairs_on_island);
-                while (upper_bound < coin) {
-                    loc++;
-                    upper_bound += (double)(active_branches[island][loc].size() 
-                        * (active_branches[island][loc].size() - 1)) 
-                        / (2.0 * pairs_on_island);
-                }
-                for (int l = 0; l < number_of_loci; l++) {
-                    int size_at_locus = 0;
-                    if (l == loc) {
-                        size_at_locus = 2 + gsl_ran_binomial(gen, impact, 
-                            active_branches[island][l].size() - 2);
-                    } else {
-                        size_at_locus = gsl_ran_binomial(gen, impact, 
-                                    active_branches[island][l].size());
-                    }
-                    if (size_at_locus > 1) {
-                        std::vector<int> mergers(4, 0);
-                        int running_total = 0;
-                        for (int i = 0; i < 4; i++) {
-                            mergers[i] = gsl_ran_binomial(gen, 1.0 
-                                / (double)(4 - i), size_at_locus 
-                                - running_total);
-                            running_total += mergers[i];
-                        }
-                        int actual_mergers = 0;
-                        for (int i = 0; i < 4; i++) {
-                            if (mergers[i] > 1) {
-                                actual_mergers++;
-                                std::vector<int> children(mergers[i], -1);
-                                int total_records = 0;
-                                int total_sampled = 0;
-                                while (total_sampled < mergers[i]) {
-                                    if ((double)(active_branches[island]
-                                        [l].size() - total_records) 
-                                        * gsl_rng_uniform(gen) 
-                                        >= (double)(mergers[i] 
-                                        - total_sampled)) {
-                                        total_records++;
-                                    } else {
-                                        children[total_sampled] 
-                                            = total_records;
-                                        total_records++;
-                                        total_sampled++;
-                                    }
+                if (size_at_locus > 1) {
+                    int mergers, running_total = 0;
+                    int actual_mergers = 0;
+                    int max_families = 4;
+                    for (int i = 0; i < max_families; i++) {
+                        mergers = gsl_ran_binomial(gen, 1.0 
+                            / (double)(max_families - i), size_at_locus 
+                            - running_total);
+                        running_total += mergers;
+                        if (mergers > 1) {
+                            actual_mergers++;
+                            std::vector<int> children(mergers, -1);
+                            int total_records = 0;
+                            int total_sampled = 0;
+                            while (total_sampled < mergers) {
+                                if ((double)(active_branches[island][l].size()
+                                    - total_records) * gsl_rng_uniform(gen) 
+                                    >= (double)(mergers - total_sampled)) {
+                                    total_records++;
+                                } else {
+                                    children[total_sampled] = total_records;
+                                    total_records++;
+                                    total_sampled++;
                                 }
-                                Branch tmp(l, island, 0.0, 1.0, sim_time);
-                                tmp.virtual_flag = 1;
-                                for (unsigned int j = 0; j < children.size(); 
-                                    j++) {
-                                    tmp.children.push_back(active_branches
-                                        [island][l][children[j]]);
-                                    gsl_matrix_set(
-                                        per_island_locus_recomb_rates, island, 
-                                        l, gsl_matrix_get(
-                                        per_island_locus_recomb_rates, island, 
-                                        l) - recombination_rate(
-                                            tmp.children.back()));
-                                    if (branches[tmp.children[j]].virtual_flag
-                                        == 0) {
-                                        tmp.virtual_flag = 0;
-                                    }
-                                }
-                                std::vector<double> tmp_blocks = branches
-                                    [tmp.children[0]].ancestral_blocks;
-                                int ind;
-                                for (int j = 1; j < mergers[i]; j++) {
-                                    ind = 0;
-                                    for (int k = 0; k <= (int)branches[tmp.
-                                        children[j]].ancestral_blocks.size() 
-                                        / 2; k += 2) {
-                                        if (ind < (int)tmp_blocks.size()) {
-                                            while (tmp_blocks[ind] < branches[
-                                                tmp.children[j]].ancestral_blocks
-                                                [k]) {
-                                                ind += 2;
-                                                if (ind == 
-                                                    (int)tmp_blocks.size()) {
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                        tmp_blocks.insert(tmp_blocks.begin() 
-                                            + ind, branches[tmp.children[j]]
-                                            .ancestral_blocks.begin() + k, 
-                                            branches[tmp.children[j]]
-                                            .ancestral_blocks.begin() + k + 2);
-                                    }
-                                }
-                                ind = 0;
-                                while (ind < (int)tmp_blocks.size() - 2) {
-                                    while (tmp_blocks[ind + 2] 
-                                            < tmp_blocks[ind + 1]) {
-                                        tmp_blocks[ind + 1] = fmax(tmp_blocks
-                                            [ind + 1], tmp_blocks[ind + 3]);
-                                        tmp_blocks.erase(tmp_blocks.begin() 
-                                        + ind + 2, tmp_blocks.begin() + ind 
-                                        + 4);
-                                        if (ind + 2 > (int)tmp_blocks.size() 
-                                            - 1) {
-                                            break;
-                                        }
-                                    }
-                                    ind += 2;
-                                }
-                                tmp.ancestral_blocks = tmp_blocks;
-                                for (int j = mergers[i] - 1; j > -1; j--) {
-                                    branches[tmp.children[j]].parents
-                                        .push_back(branches.size());
-                                    active_branches[island][l].erase(
-                                        active_branches[island][l].begin() 
-                                        + children[j]);
-                                }
-                                branches.push_back(tmp);
+                            }
+                            Branch tmp(l, island, 0.0, 1.0, sim_time);
+                            tmp.virtual_flag = 1;
+                            for (int j = 0; j < (int)children.size(); j++) {
+                                tmp.children.push_back(active_branches
+                                    [island][l][children[j]]);
                                 gsl_matrix_set(per_island_locus_recomb_rates, 
                                     island, l, gsl_matrix_get(
                                     per_island_locus_recomb_rates, island, l)
-                                    + recombination_rate(branches.size() - 1));
+                                    - recombination_rate(tmp.children.back()));
+                                if (branches[tmp.children[j]].virtual_flag
+                                    == 0) {
+                                    tmp.virtual_flag = 0;
+                                }
                             }
+                            std::vector<double> tmp_blocks = branches
+                                [tmp.children[0]].ancestral_blocks;
+                            int ind;
+                            for (int j = 1; j < mergers; j++) {
+                                ind = 0;
+                                for (int k = 0; k <= (int)branches[tmp.
+                                    children[j]].ancestral_blocks.size() 
+                                    / 2; k += 2) {
+                                    if (ind < (int)tmp_blocks.size()) {
+                                        while (tmp_blocks[ind] < branches[
+                                            tmp.children[j]].ancestral_blocks
+                                            [k]) {
+                                            ind += 2;
+                                            if (ind == 
+                                                (int)tmp_blocks.size()) {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    tmp_blocks.insert(tmp_blocks.begin() 
+                                        + ind, branches[tmp.children[j]]
+                                        .ancestral_blocks.begin() + k, 
+                                        branches[tmp.children[j]]
+                                        .ancestral_blocks.begin() + k + 2);
+                                }
+                            }
+                            ind = 0;
+                            while (ind < (int)tmp_blocks.size() - 2) {
+                                while (tmp_blocks[ind + 2] 
+                                        < tmp_blocks[ind + 1]) {
+                                    tmp_blocks[ind + 1] = fmax(tmp_blocks
+                                        [ind + 1], tmp_blocks[ind + 3]);
+                                    tmp_blocks.erase(tmp_blocks.begin() 
+                                        + ind + 2, tmp_blocks.begin() + ind 
+                                        + 4);
+                                    if (ind + 2 > (int)tmp_blocks.size() - 1) {
+                                        break;
+                                    }
+                                }
+                                ind += 2;
+                            }
+                            tmp.ancestral_blocks = tmp_blocks;
+                            for (int j = mergers - 1; j > -1; j--) {
+                                branches[tmp.children[j]].parents
+                                    .push_back(branches.size());
+                                active_branches[island][l].erase(
+                                    active_branches[island][l].begin() 
+                                    + children[j]);
+                            }
+                            branches.push_back(tmp);
+                            gsl_matrix_set(per_island_locus_recomb_rates, 
+                                island, l, gsl_matrix_get(
+                                per_island_locus_recomb_rates, island, l)
+                                + recombination_rate(branches.size() - 1));
                         }
-                        for (int i = actual_mergers; i > 0; i--) {
-                            active_branches[island][l].push_back(
-                                branches.size() - i);
-                        }
+                    }
+                    for (int i = actual_mergers; i > 0; i--) {
+                        active_branches[island][l].push_back(
+                            branches.size() - i);
                     }
                 }
             }
-        } else if (coin < (total_coalescence_rate + total_selection_rate) 
-            / total_rate) {
-            simulate_selection_event(total_selection_rate);
-        } else if (coin < (total_coalescence_rate + total_selection_rate 
-            + total_migration_rate) / total_rate) {
-            simulate_migration_event(total_migration_rate);
-        } else {
-            simulate_recombination_event(total_recombination_rate);
         }
         return;
     }
     
-    double growth_time_step() const {
-        double log_coin = log(gsl_rng_uniform(gen));
-        double f = 0.0;
-        double pairs = 0.0;
-        double singles = 0.0;
+    double time_increment(int &event_type, int &island, int &target_island,
+                          int &locus) const {
+        double ret = std::numeric_limits<double>::max();
+        double tmp = 0.0;
         for (int i = 0; i < number_of_islands; i++) {
-            pairs = 0.0;
-            singles = 0.0;
             for (int j = 0; j < number_of_loci; j++) {
-                pairs += (double)(active_branches[i][j].size() 
-                    * (active_branches[i][j].size() - 1)) / 2.0;
-                singles += (double)active_branches[i][j].size();
-                f += gsl_matrix_get(per_island_locus_recomb_rates, i, j);
-            }
-            switch (model) {
-                case 1: f += exp(log(pairs) + 2.0 * growth_rates[i] * sim_time 
-                            / relative_population_sizes[i] 
-                            - log(relative_population_sizes[i]));
-                        break;
-                case 2: f += exp(log(pairs) + log(2.0) + growth_rates[i] 
-                            * log(1.0 + 2.0 * sim_time 
-                            / relative_population_sizes[i]) 
-                            - log(relative_population_sizes[i]));
-                        break;
-                default: std::cout << "Unrecognised model label " << model;
-                        std::cout << std::endl;
-                        abort();
-            }
-            f += singles * max_fitness(i);
-            for (int j = 0; j < number_of_islands; j++) {
-                f += exp(log(relative_population_sizes[j]) 
-                    + log(migration_rates[j]) 
-                    + log(migration_probability(j, i)) 
-                    - log(relative_population_sizes[i]));
-            }
-        }
-        // Initial guess solution computed from a linearised equation
-        // This prevents overflows for large growth rates because the initial
-        // guess and true time step are both very small numbers.
-        double ret = -log_coin / f;
-        double initial_guess = ret;
-        f = log_coin;
-        double f_prime = 0.0;
-        double tol = 1e-6;
-        for (int i = 0; i < number_of_islands; i++) {
-            pairs = 0.0;
-            singles = 0.0;
-            for (int j = 0; j < number_of_loci; j++) {
-                pairs += (double)(active_branches[i][j].size() 
-                    * (active_branches[i][j].size() - 1)) / 2.0;
-                singles += (double)active_branches[i][j].size();
-                f += ret * gsl_matrix_get(per_island_locus_recomb_rates, i, j);
-                f_prime += gsl_matrix_get(per_island_locus_recomb_rates, i, j);
-            }
-            switch (model) {
-                case 1: f += exp(log(pairs) + 2.0 * growth_rates[i] * sim_time 
-                            / relative_population_sizes[i] + log(exp(2.0 
-                            * growth_rates[i] * ret 
-                            / relative_population_sizes[i]) - 1.0) - log(2.0) 
-                            - log(growth_rates[i]));
-                        f_prime += exp(log(pairs) + 2.0 * growth_rates[i] 
-                            * (sim_time + ret) / relative_population_sizes[i]
-                            - log(relative_population_sizes[i]));
-                        break;
-                case 2: f += pairs * (pow(2.0 * (sim_time + ret) 
-                            / relative_population_sizes[i] + 1.0, 
-                            growth_rates[i] + 1.0) - pow(2.0 * sim_time 
-                            / relative_population_sizes[i] + 1.0, 
-                            growth_rates[i] + 1.0)) / (growth_rates[i] + 1.0);
-                        f_prime += pairs * 2.0 * pow(2.0 * (sim_time + ret) 
-                            / relative_population_sizes[i] + 1.0, 
-                            growth_rates[i]) / relative_population_sizes[i];
-                        break;
-                default: std::cout << "Unrecognised model label " << model;
-                        std::cout << std::endl;
-                        abort();
-                        
-            }
-            f += singles * max_fitness(i) * ret;
-            f_prime += singles * max_fitness(i);
-            for (int j = 0; j < number_of_islands; j++) {
-                f += exp(log(singles) * log(relative_population_sizes[j]) 
-                    + log(migration_rates[j]) + log(migration_probability(j, 
-                    i)) + log(ret) - log(relative_population_sizes[i]));
-                f_prime += exp(log(singles) * log(relative_population_sizes[j])
-                    + log(migration_rates[j]) + log(migration_probability(j,
-                    i)) - log(relative_population_sizes[i]));
-            }
-        }
-        while (fabs(f) > tol && ret > tol) {
-            ret -= f / f_prime;
-            f = log_coin;
-            f_prime = 0.0;
-            for (int i = 0; i < number_of_islands; i++) {
-                pairs = 0.0;
-                singles = 0.0;
-                for (int j = 0; j < number_of_loci; j++) {
-                    pairs += (double)(active_branches[i][j].size() 
-                        * (active_branches[i][j].size() - 1)) / 2.0;
-                    singles += (double)active_branches[i][j].size();
-                    f += ret * gsl_matrix_get(per_island_locus_recomb_rates, 
-                                              i, j);
-                    f_prime += gsl_matrix_get(per_island_locus_recomb_rates, 
-                                              i, j);
+                if (active_branches[i][j].size() > 1) {
+                    if (growth_rate > 0.0) {
+                        tmp = log(1.0 - 2.0 * growth_rate 
+                            * relative_population_sizes[i] 
+                            * exp(-growth_rate * sim_time) 
+                            * log(gsl_rng_uniform_pos(gen)) 
+                            / (double)(active_branches[i][j].size() 
+                            * (active_branches[i][j].size() - 1))) 
+                            / growth_rate;
+                    } else {
+                        tmp = gsl_ran_exponential(gen, 
+                            2.0 * relative_population_sizes[i] 
+                            / (double)(active_branches[i][j].size() 
+                            * (active_branches[i][j].size() - 1)));
+                    }
+                    if (tmp < ret) {
+                        ret = tmp;
+                        island = i;
+                        event_type = 0;
+                        locus = j;
+                    }
                 }
-                switch (model) {
-                    case 1: f += exp(log(pairs) + 2.0 * growth_rates[i] 
-                                * sim_time / relative_population_sizes[i] 
-                                + log(exp(2.0 * growth_rates[i] * ret 
-                                / relative_population_sizes[i]) - 1.0) 
-                                - log(2.0) - log(growth_rates[i]));
-                            f_prime += exp(log(pairs) + 2.0 * growth_rates[i] 
-                                * (sim_time + ret) 
-                                / relative_population_sizes[i] 
-                                - log(relative_population_sizes[i]));
-                            break;
-                    case 2: f += pairs * (pow(2.0 * (sim_time + ret) 
-                                / relative_population_sizes[i] + 1.0, 
-                                growth_rates[i] + 1.0) - pow(2.0 * sim_time 
-                                / relative_population_sizes[i] + 1.0, 
-                                growth_rates[i] + 1.0)) / (growth_rates[i] 
-                                + 1.0);
-                            f_prime += pairs * 2.0 * pow(2.0 * (sim_time + ret)
-                                / relative_population_sizes[i] + 1.0, 
-                                growth_rates[i]) 
-                                / relative_population_sizes[i];
-                            break;
-                    default: std::cout << "Unrecognised model label " << model;
-                            std::cout << std::endl;
-                            abort();
-                }
-                f += singles * max_fitness(i) * ret;
-                f_prime += singles * max_fitness(i);
-                for (int j = 0; j < number_of_islands; j++) {
-                    f += exp(log(singles) * log(relative_population_sizes[j]) 
-                        + log(migration_rates[j]) 
-                        + log(migration_probability(j, i)) + log(ret) 
-                        - log(relative_population_sizes[i]));
-                    f_prime += exp(log(singles) 
-                        * log(relative_population_sizes[j]) 
-                        + log(migration_rates[j]) 
-                        + log(migration_probability(j, i)) 
-                        - log(relative_population_sizes[i]));
+                if (active_branches[i][j].size() > 0) {
+                    for (int k = 0; k < number_of_islands; k++) {
+                        if (k != i && migration_rates[k] 
+                            * migration_probability(k, i) > 0.0) {
+                            tmp = gsl_ran_exponential(gen, 
+                                relative_population_sizes[i] 
+                                / ((double)active_branches[i][j].size() 
+                                * relative_population_sizes[k] 
+                                * migration_rates[k] 
+                                * migration_probability(k, i)));
+                            if (tmp < ret) {
+                                ret = tmp;
+                                island = i;
+                                event_type = 1;
+                                target_island = k;
+                                locus = j;
+                            }
+                        }
+                    }
+                    if (max_fitness(i) > 0.0) {
+                        tmp = gsl_ran_exponential(gen, 1.0 
+                            / ((double)active_branches[i][j].size() 
+                            * max_fitness(i)));
+                        if (tmp < ret) {
+                            ret = tmp;
+                            island = i;
+                            event_type = 2;
+                            locus = j;
+                        }
+                    }
+                    if (gsl_matrix_get(per_island_locus_recomb_rates, i, j) 
+                        > 0.0) {
+                        tmp = gsl_ran_exponential(gen, 1.0 / gsl_matrix_get(
+                            per_island_locus_recomb_rates, i, j));
+                        if (tmp < ret) {
+                            ret = tmp;
+                            island = i;
+                            event_type = 3;
+                            locus = j;
+                        }
+                    }
                 }
             }
-        }
-        if (ret <= 0.0) {
-            // Approximate linearised time step if the exact exponential
-            // expression underflows to 0.
-            ret = initial_guess;
         }
         return ret;
     }
     
-    void simulate_growth_event() {
-        double total_coalescence_rate = 0.0;
-        double total_selection_rate = 0.0;
-        double total_migration_rate = 0.0;
-        double total_recombination_rate = 0.0;
-        double pairs = 0.0;
-        double singles = 0.0;
-        sim_time += growth_time_step();
-        for (int i = 0; i < number_of_islands; i++) {
-            pairs = 0.0;
-            singles = 0.0;
-            for (int j = 0; j < number_of_loci; j++) {
-                pairs += (double)(active_branches[i][j].size() 
-                    * (active_branches[i][j].size() - 1)) / 2.0;
-                singles += (double)active_branches[i][j].size();
-                total_recombination_rate += gsl_matrix_get(
-                    per_island_locus_recomb_rates, i, j);
-            }
-            total_selection_rate += singles * max_fitness(i);
-            switch (model) {
-                case 1: total_coalescence_rate += exp(log(pairs) + 2.0 
-                            * growth_rates[i] * sim_time 
-                            / relative_population_sizes[i] 
-                            - log(relative_population_sizes[i]));
-                        break;
-                case 2: total_coalescence_rate += exp(log(pairs) + log(2.0) 
-                            + growth_rates[i] * log(1.0 + 2.0 * sim_time 
-                            / relative_population_sizes[i]) - 
-                            log(relative_population_sizes[i]));
-                        break;
-                default: std::cout << "Unrecognised model label " << model;
-                        std::cout << std::endl;
-                        abort();
-            }
-            for (int j = 0; j < number_of_islands; j++) {
-                total_migration_rate += exp(log(singles) 
-                    + log(relative_population_sizes[j]) 
-                    + log(migration_rates[j]) + log(migration_probability(j, 
-                    i)) - log(relative_population_sizes[i]));
-            }
-            total_coalescence_rate = fmin(total_coalescence_rate, 
-                                          std::numeric_limits<double>::max());
-        }
-        double coin = gsl_rng_uniform(gen);
-        double total_rate = total_coalescence_rate + total_selection_rate 
-            + total_migration_rate + total_recombination_rate;
-        if (coin < total_coalescence_rate / total_rate) {
-            double total_pairs = 0.0;
-            for (int i = 0; i < number_of_islands; i++) {
-                for (int j = 0; j < number_of_loci; j++) {
-                    total_pairs += (double)(active_branches[i][j].size() 
-                        * (active_branches[i][j].size() - 1)) / 2.0;
-                }
-            }
-            int island = 0;
-            double coin = gsl_rng_uniform(gen);
-            double pairs_on_island = 0.0;
-            for (int l = 0; l < number_of_loci; l++) {
-                pairs_on_island += (double)(active_branches[island][l].size() 
-                    * (active_branches[island][l].size() - 1)) / 2.0;
-            }
-            double upper_bound = pairs_on_island / total_pairs;
-            while (upper_bound < coin) {
-                island++;
-                pairs_on_island = 0.0;
-                for (int l = 0; l < number_of_loci; l++) {
-                    pairs_on_island += (double)(active_branches[island][l].size() 
-                        * (active_branches[island][l].size() - 1)) / 2.0;
-                }
-                upper_bound += pairs_on_island / total_pairs;
-            }
-            int loc = 0;
-            coin = gsl_rng_uniform(gen);
-            upper_bound = (double)(active_branches[island][loc].size() 
-                * (active_branches[island][loc].size() - 1)) / (2.0 
-                * pairs_on_island);
-            while (upper_bound < coin) {
-                loc++;
-                upper_bound += (double)(active_branches[island][loc].size() 
-                * (active_branches[island][loc].size() - 1)) / (2.0 
-                * pairs_on_island);
-            }
-            int child_ind_1 = floor(gsl_rng_uniform(gen) 
-                * (double)active_branches[island][loc].size());
-            int child_ind_2 = floor(gsl_rng_uniform(gen) 
-                * (double)active_branches[island][loc].size());
-            while (child_ind_1 == child_ind_2) {
-                child_ind_2 = floor(gsl_rng_uniform(gen) 
-                * (double)active_branches[island][loc].size());
-            }
-            int child_1 = active_branches[island][loc][child_ind_1];
-            int child_2 = active_branches[island][loc][child_ind_2];
-            branches[child_1].parents.push_back(branches.size());
-            branches[child_2].parents.push_back(branches.size());
-            active_branches[island][loc].erase(active_branches[island]
-                [loc].begin() + std::max(child_ind_1, child_ind_2));
-            active_branches[island][loc].erase(active_branches[island]
-                [loc].begin() + std::min(child_ind_1, child_ind_2));
-            active_branches[island][loc].push_back(branches.size());
-            Branch tmp(loc, island, 0.0, 1.0, sim_time);
-            tmp.children.push_back(std::min(child_1, child_2));
-            tmp.children.push_back(std::max(child_1, child_2));
-            tmp.virtual_flag = std::min(branches[child_1].virtual_flag, 
-                                        branches[child_2].virtual_flag);
-            std::vector<double> tmp_blocks = branches[child_1]
-                                                .ancestral_blocks;
-            int ind = 0;
-            for (int i = 0; i <= (int)branches[child_2].ancestral_blocks.size() 
-                / 2; i += 2) {
-                if (ind < (int)tmp_blocks.size()) {
-                    while (tmp_blocks[ind] 
-                            < branches[child_2].ancestral_blocks[i]) {
-                        ind += 2;
-                        if (ind == (int)tmp_blocks.size()) {
-                            break;
-                        }
-                    }
-                }
-                tmp_blocks.insert(tmp_blocks.begin() + ind, 
-                        branches[child_2].ancestral_blocks.begin() + i,
-                        branches[child_2].ancestral_blocks.begin() + i + 2);
-            }
-            ind = 0;
-            while (ind < (int)tmp_blocks.size() - 2) {
-                while (tmp_blocks[ind + 2] < tmp_blocks[ind + 1]) {
-                    tmp_blocks[ind + 1] = fmax(tmp_blocks[ind + 1], 
-                                               tmp_blocks[ind + 3]);
-                    tmp_blocks.erase(tmp_blocks.begin() + ind + 2, 
-                                     tmp_blocks.begin() + ind + 4);
-                    if (ind + 2 > (int)tmp_blocks.size() - 1) {
-                        break;
-                    }
-                }
-                ind += 2;
-            }
-            tmp.ancestral_blocks = tmp_blocks;
-            branches.push_back(tmp);
-            gsl_matrix_set(per_island_locus_recomb_rates, island, loc, 
-                gsl_matrix_get(per_island_locus_recomb_rates, island, loc) 
-                - recombination_rate(child_1) - recombination_rate(child_2) 
-                + recombination_rate(branches[child_1].parents[0]));
-        } else if (coin < (total_coalescence_rate + total_selection_rate) 
-                    / total_rate) {
-            simulate_selection_event(total_selection_rate);
-        } else if (coin < (total_coalescence_rate + total_selection_rate 
-            + total_migration_rate) / total_rate) {
-            simulate_migration_event(total_migration_rate);
-        } else {
-            simulate_recombination_event(total_recombination_rate);
+    void simulate_event() {
+        int event_type = -1;
+        int island = -1;
+        int target_island = -1;
+        int locus = -1;
+        sim_time += time_increment(event_type, island, target_island, locus);
+        switch (event_type) {
+            case 0: simulate_coalescence_event(island, locus);
+                    break;
+            case 1: simulate_migration_event(island, target_island, locus);
+                    break;
+            case 2: simulate_selection_event(island, locus);
+                    break;
+            case 3: simulate_recombination_event(island, locus);
+                    break;
+            default: std::cout << "unrecognised event type" << std::endl;
+                    abort();
         }
         return;
     }
@@ -1340,17 +940,7 @@ struct Ancestry {
     void simulate() {
         int total_active_branches = sample_size * number_of_loci;
         while (total_active_branches > number_of_loci) {
-            switch (model) {
-                case 0: simulate_xi_event();
-                        break;
-                case 1: simulate_growth_event();
-                        break;
-                case 2: simulate_growth_event();
-                        break;
-                default: std::cout << "Unrecognised model label " << model;
-                        std::cout << std::endl;
-                        abort();
-            }
+            simulate_event();
             total_active_branches = 0;
             for (int i = 0; i < number_of_islands; i++) {
                 for (int j = 0; j < number_of_loci; j++) {
@@ -1363,9 +953,9 @@ struct Ancestry {
         return;
     }
     
-    int number_of_loci, number_of_islands, model, sample_size;
-    double alpha, sim_time; 
-    std::vector<double> growth_rates, selection_rates, mutation_rates;
+    int number_of_loci, number_of_islands, sample_size;
+    double alpha, growth_rate, sim_time; 
+    std::vector<double> selection_rates, mutation_rates;
     std::vector<double> selective_mutation_rates, migration_rates;
     std::vector<double> recombination_rates, relative_population_sizes;
     std::vector<Branch> branches;
