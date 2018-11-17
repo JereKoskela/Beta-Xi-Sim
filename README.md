@@ -1,5 +1,5 @@
 # Beta-Xi-Sim
-An efficient simulator for ancestries of multiple unlinked loci driven by Beta-Xi-coalescents, as well as Kingman coalescents with algebraic or exponential population growth. Valid for any number of loci and sample sizes &lt; 10 000.
+An efficient simulator for ancestries of multiple unlinked loci driven by Beta-Xi-coalescents with exponential population growth. Valid for any number of loci and sample sizes &lt; 10 000.
 
 # User interface
 Parameters can be specified via a text file interface (see provided dev.cfg for an example).
