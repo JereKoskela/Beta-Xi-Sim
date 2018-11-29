@@ -579,20 +579,24 @@ struct Ancestry {
                           int &locus) const {
         double ret = std::numeric_limits<double>::max();
         double tmp = 0.0;
+        double helpful_factor = pow(relative_population_sizes[0], 3.0 - alpha);
+        for (int i = 0; i < number_of_islands; i++) {
+            helpful_factor += pow(relative_population_sizes[i], 3.0 - alpha);
+        }
         for (int i = 0; i < number_of_islands; i++) {
             for (int j = 0; j < number_of_loci; j++) {
                 if (active_branches[i][j].size() > 1) {
-                    if (growth_rate > 0.0) {
-                        tmp = log(1.0 - 2.0 * growth_rate 
-                            * relative_population_sizes[i] 
-                            * exp(-growth_rate * sim_time) 
-                            * log(gsl_rng_uniform_pos(gen)) 
+                    if (growth_rate * (alpha - 1.0) > 0.0) {
+                        tmp = log(1.0 - 2.0 * growth_rate * (alpha - 1.0)
+                            * pow(relative_population_sizes[i], alpha - 1.0)
+                            * exp(-growth_rate * (alpha - 1.0) * sim_time) 
+                            * helpful_factor * log(gsl_rng_uniform_pos(gen)) 
                             / (double)(active_branches[i][j].size() 
                             * (active_branches[i][j].size() - 1))) 
-                            / growth_rate;
+                            / (growth_rate * (alpha - 1.0));
                     } else {
-                        tmp = gsl_ran_exponential(gen, 
-                            2.0 * relative_population_sizes[i] 
+                        tmp = gsl_ran_exponential(gen, 2.0 * helpful_factor * 
+                            pow(relative_population_sizes[i], alpha - 1.0)
                             / (double)(active_branches[i][j].size() 
                             * (active_branches[i][j].size() - 1)));
                     }
