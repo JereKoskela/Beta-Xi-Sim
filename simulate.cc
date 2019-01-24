@@ -1,6 +1,5 @@
 #include <cstdlib>
 #include <iostream>
-#include <vector>
 #include "ancestry.hh"
 
 int main(int argc, char **argv) {
