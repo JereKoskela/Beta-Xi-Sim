@@ -20,3 +20,6 @@ when the simulation consists of m loci and a total sample size (across all islan
 
 # Genetic forces
 Currently implemented are crossover recombination within loci, spatial structure with migration on an arbitrary finite graph, and weak natural selection with fitness depending on the full genotype of both parents, as well as their geographical location. Simulating more than one island without migration will result in an infinite loop as the most recent common ancestor of the whole sample cannot be reached, unless only one island has a positive sample size.
+
+# Epochs
+The change_times parameter lets the user specify times (in generations) for jump discontinuities in simulation parameters. Relative population sizes across islands, population growth rates, weak selection parameters, and migration rates can vary in this way. All of these parameters must be specified for all epochs (even when they don't change between two epochs) as outlined in dev.cfg. Phylogenetic species trees can be simulated by specifying multiple islands, initially with migration rates set to zero, provided that all islands communicate with positive rate eventually. 
