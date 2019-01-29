@@ -65,20 +65,27 @@ struct Ancestry {
     }
     
     int sample_initial_selective_type(const int locus, 
-                                      const int island) const {
+                                      const int island, 
+                                      const int epoch) const {
         // Return a type from the desired distribution for selective types of
-        // roots. Under stationarity this should be the stationary distribution
-        // of mutate_selective_type(), but this is not enforced in the code and
-        // other initial distributions can be used if desired.
+        // roots.
         
         // The selective type space is implicit in the definitions of this 
         // function as well as mutate_selective_type(). It is stored as an 
         // integer in the branch struct.
-        int keep_gcc_happy = locus * island;
-        keep_gcc_happy *= 2;
-        int ret = 1;
-        if (gsl_rng_uniform(gen) < 0.9) {
-            ret = 0;
+        double freq = 0.0;
+        double theta = selective_mutation_rates[locus];
+        double sigma = gsl_matrix_get(selection_rates, epoch, island);
+        int accept = 0;
+        while (accept == 0) {
+            freq = gsl_ran_beta(gen, 0.9 * theta, 0.1 * theta);
+            if (gsl_rng_uniform(gen) < exp(sigma * (freq - 1.0))) {
+                accept = 1;
+            }
+        }
+        int ret = 0;
+        if (gsl_rng_uniform(gen) < freq) {
+            ret = 1;
         }
         return ret;
     }
@@ -161,7 +168,7 @@ struct Ancestry {
         // The reverse time migration rate from i to j is in a given epoch
         // migration_rates[epoch][j] * migration_probability(j, i), up to factors
         // based on different island population sizes and growth rates.
-        int keep_gcc_happy = i * epoch;
+        int keep_gcc_happy = epoch;
         keep_gcc_happy *= 2;
         double ret = 0.0;
         if (number_of_islands > 1 && j != i) {
@@ -741,7 +748,7 @@ struct Ancestry {
             if (branches[i].parents.size() == 0) {
                 branches[i].selective_type = 
                     sample_initial_selective_type(branches[i].locus, 
-                                                  branches[i].island);
+                        branches[i].island, branches[i].leaf_epoch);
             } else {
                 if ((int)branches[i].incoming.size() == 2 * number_of_loci) {
                     double selection_prob = fitness(branches[i].incoming, 
