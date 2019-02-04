@@ -2,6 +2,7 @@
 #define ANCESTRY
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstdlib>
 #include <gsl/gsl_matrix.h>
@@ -223,6 +224,7 @@ struct Ancestry {
         gsl_matrix_free(selection_rates);
         gsl_matrix_free(migration_rates);
         gsl_matrix_free(per_island_locus_recomb_rates);
+        gsl_matrix_free(population_mergers);
     }
     
     void read_config(const char *filename) {
@@ -285,6 +287,9 @@ struct Ancestry {
                                            number_of_islands);
         migration_rates = gsl_matrix_alloc(number_of_epochs, 
                                            number_of_islands);
+        population_mergers = gsl_matrix_calloc(number_of_epochs - 1, 
+                                        number_of_islands * number_of_islands);
+        int tmp_int = 0;
         for (int i = 0; i < number_of_epochs; i++) {
             for (int j = 0; j < number_of_islands; j++) {
                 gsl_matrix_set(relative_population_sizes, i, j, (double)root[
@@ -295,6 +300,17 @@ struct Ancestry {
                 gsl_matrix_set(migration_rates, i, j, 
                     (double)root["migrant_fractions"][i * number_of_islands 
                     + j] * pow(effective_population_size, alpha - 1.0));
+                if (i < number_of_epochs - 1) {
+                    for (int k = j + 1; k < number_of_islands; k++) {
+                        tmp_int = root["population_mergers"][i 
+                            * number_of_islands * number_of_islands 
+                            + j * number_of_islands + k];
+                        if (tmp_int == 1) {
+                            gsl_matrix_set(population_mergers, i, 
+                                           j * number_of_islands + k, 1);
+                        }
+                    }
+                }
             }
         }
         return;
@@ -732,7 +748,19 @@ struct Ancestry {
             case 3: simulate_recombination_event(island, locus, 
                         total_active_branches);
                     break;
-            case 4: epoch++;
+            case 4: for (int i = 0; i < number_of_islands; i++) {
+                        for (int j = i + 1; j < number_of_islands; j++) {
+                            if (gsl_matrix_get(population_mergers, epoch, 
+                                i * number_of_islands + j) == 1) {
+                                for (int k = 0; k < number_of_loci; k++) {
+                                    while (active_branches[j][k].size() > 0) {
+                                        simulate_migration_event(j, i, k);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    epoch++;
                     break;
             default: std::cout << "unrecognised event type" << std::endl;
                     abort();
@@ -1036,6 +1064,7 @@ struct Ancestry {
     gsl_matrix *selection_rates;
     gsl_matrix *migration_rates;
     gsl_matrix *per_island_locus_recomb_rates;
+    gsl_matrix *population_mergers;
 };
 
 #endif
