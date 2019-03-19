@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <gsl/gsl_matrix.h>
+#include <gsl/gsl_sf_gamma.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_rng.h>
 #include <iostream>
@@ -234,6 +235,14 @@ struct Ancestry {
         cfg.lookupValue("alpha", alpha);
         cfg.lookupValue("effective_population_size", 
                         effective_population_size);
+        double time_scale = effective_population_size;
+        if (alpha < 2.0 && alpha > 1.0) {
+            time_scale = exp((alpha - 1.0) * (log(alpha) 
+                + log(effective_population_size)) - alpha * log(alpha - 1.0) 
+                - gsl_sf_lnbeta(2.0 - alpha, alpha));
+        } else if (alpha <= 1.0) {
+            time_scale = log(effective_population_size);
+        }
         const libconfig::Setting &root = cfg.getRoot();
         number_of_islands = root["sample_sizes"].getLength();
         number_of_loci = root["locus_lengths"].getLength();
@@ -242,23 +251,19 @@ struct Ancestry {
                         per_site_mutation_probability);
         for (int i = 0; i < number_of_epochs - 1; i++) {
             change_times.push_back((double)root["change_times"][i] 
-                * pow(effective_population_size, 1.0 - alpha));
+                / time_scale);
             growth_rates.push_back((double)root["growth_rates"][i] 
-                * pow(effective_population_size, alpha - 1.0));
+                * time_scale);
         }
         growth_rates.push_back(
-            (double)root["growth_rates"][number_of_epochs - 1] 
-            * pow(effective_population_size, alpha - 1.0));
+            (double)root["growth_rates"][number_of_epochs - 1] * time_scale);
         for (int i = 0; i < number_of_loci; i++) {
             recombination_rates.push_back(
-                (double)root["recombination_probabilities"][i] 
-                * pow(effective_population_size, alpha - 1.0));
+                (double)root["recombination_probabilities"][i] * time_scale);
             mutation_rates.push_back(per_site_mutation_probability 
-                * (double)root["locus_lengths"][i]
-                * pow(effective_population_size, alpha - 1.0));
+                * (double)root["locus_lengths"][i] * time_scale);
             selective_mutation_rates.push_back(per_site_mutation_probability 
-                * (double)root["selective_window_lengths"][i]
-                * pow(effective_population_size, alpha - 1.0));
+                * (double)root["selective_window_lengths"][i] * time_scale);
         }
         int count;
         Branch tmp(0, 0, 0, 0.0, 1.0, 0.0);
@@ -296,10 +301,10 @@ struct Ancestry {
                     "relative_population_sizes"][i * number_of_islands + j]);
                 gsl_matrix_set(selection_rates, i, j, (double)root[
                     "selection_strengths"][i * number_of_islands + j] 
-                    * pow(effective_population_size, alpha - 1.0));
+                    * time_scale);
                 gsl_matrix_set(migration_rates, i, j, 
                     (double)root["migrant_fractions"][i * number_of_islands 
-                    + j] * pow(effective_population_size, alpha - 1.0));
+                    + j] * time_scale);
                 if (i < number_of_epochs - 1) {
                     for (int k = j + 1; k < number_of_islands; k++) {
                         tmp_int = root["population_mergers"][i 
