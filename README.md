@@ -12,11 +12,17 @@ More powerful customisation, such as arbitrary fitness functions and recombinati
 The software outputs a space-delimited, normalised site frequency spectrum (SFS) for each island and each locus. If isl_i_loc_j_sfs_k denotes the kth entry of the SFS for locus j, on island i, then the output format is
 
   `isl_1_loc_1_sfs_1 isl_1_loc_1_sfs_2 ... isl_1_loc_1_sfs_n-1`
+  
   `isl_1_loc_2_sfs_1 isl_1_loc_2_sfs_2 ... isl_1_loc_2_sfs_n-1`
+  
   `...`
+  
   `isl_1_loc_m_sfs_1 isl_1_loc_m_sfs_2 ... isl_1_loc_m_sfs_n-1`
+  
   `isl_2_loc_1_sfs_1 isl_2_loc_1_sfs_2 ... isl_2_loc_1_sfs_n-1`
+  
   `...`
+  
   `isl_l_loc_m_sfs_1 isl_l_loc_m_sfs_2 ... isl_l_loc_m_sfs_n-1`
 
 when the simulation consists of `m` loci, `l` islands, and a total sample size (across all islands) of `n`. Methods for returning similar lists of pooled (across islands) normalised SFSs, branch lengths, as well as SFSs simulated with a fixed number of mutations (as opposed to a fixed mutation rate) have also been implemented as `ancestry.print_normalised_sfs`, `ancestry.print_normalised_branch_lengths`, and `ancestry.fixed_s`, respectively.
