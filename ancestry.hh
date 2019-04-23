@@ -2,7 +2,6 @@
 #define ANCESTRY
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <cstdlib>
 #include <gsl/gsl_matrix.h>
@@ -291,7 +290,7 @@ struct Ancestry {
                                            number_of_islands);
         migration_rates = gsl_matrix_alloc(number_of_epochs, 
                                            number_of_islands);
-        population_mergers = gsl_matrix_calloc(number_of_epochs - 1, 
+        population_mergers = gsl_matrix_calloc(std::max(number_of_epochs - 1, 1), 
                                         number_of_islands * number_of_islands);
         int tmp_int = 0;
         for (int i = 0; i < number_of_epochs; i++) {
