@@ -32,3 +32,16 @@ Currently implemented are crossover recombination within loci, spatial structure
 
 # Epochs
 The change_times parameter lets the user specify times (in generations) for jump discontinuities in simulation parameters. Relative population sizes across islands, population growth rates, weak selection parameters, and migration rates can vary in this way. All of these parameters must be specified for all epochs (even when they don't change between two epochs) as outlined in dev.cfg. Phylogenetic species trees can be simulated by specifying multiple islands, initially with migration rates set to zero, provided that all islands communicate with positive rate eventually. 
+
+# Citation
+If you use Beta-Xi-Sim in your work or wish to refer to it, please cite the following accompanying article:
+`@article{Koskela:2018:JSSOBK:v30i06,`
+  `author =	"Jere Koskela",`
+  `title =	"Multi-locus data distinguishes between population growth and multiple merger coalescents,`
+  `journal =	"Statistical Applications in Genetics and Molecular Biology",`
+  `volume =	"17",`
+  `number =	"3",`
+  `pages =	"20170011",`
+  `year = 	"2018",`
+  `URL =  	"https://www.degruyter.com/view/j/sagmb.2018.17.issue-3/sagmb-2017-0011/sagmb-2017-0011.xml"`
+`}`
