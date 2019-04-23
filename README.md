@@ -35,13 +35,14 @@ The change_times parameter lets the user specify times (in generations) for jump
 
 # Citation
 If you use Beta-Xi-Sim in your work or wish to refer to it, please cite the following accompanying article:
-`@article{Koskela:2018:JSSOBK:v30i06,`
-  `author =	"Jere Koskela",`
-  `title =	"Multi-locus data distinguishes between population growth and multiple merger coalescents,`
-  `journal =	"Statistical Applications in Genetics and Molecular Biology",`
-  `volume =	"17",`
-  `number =	"3",`
-  `pages =	"20170011",`
-  `year = 	"2018",`
-  `URL =  	"https://www.degruyter.com/view/j/sagmb.2018.17.issue-3/sagmb-2017-0011/sagmb-2017-0011.xml"`
-`}`
+
+@article{Koskela:2018:SAGMB:20170011,
+  author =	"Jere Koskela",
+  title =	"Multi-locus data distinguishes between population growth and multiple merger coalescents,
+  journal =	"Statistical Applications in Genetics and Molecular Biology",
+  volume =	"17",
+  number =	"3",
+  pages =	"20170011",
+  year = 	"2018",
+  URL =  	"https://www.degruyter.com/view/j/sagmb.2018.17.issue-3/sagmb-2017-0011/sagmb-2017-0011.xml"
+}
