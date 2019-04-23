@@ -11,18 +11,12 @@ More powerful customisation, such as arbitrary fitness functions and recombinati
 # Output
 The software outputs a space-delimited, normalised site frequency spectrum (SFS) for each island and each locus. If isl_i_loc_j_sfs_k denotes the kth entry of the SFS for locus j, on island i, then the output format is
 
-  `isl_1_loc_1_sfs_1 isl_1_loc_1_sfs_2 ... isl_1_loc_1_sfs_n-1`
-  
-  `isl_1_loc_2_sfs_1 isl_1_loc_2_sfs_2 ... isl_1_loc_2_sfs_n-1`
-  
-  `...`
-  
-  `isl_1_loc_m_sfs_1 isl_1_loc_m_sfs_2 ... isl_1_loc_m_sfs_n-1`
-  
-  `isl_2_loc_1_sfs_1 isl_2_loc_1_sfs_2 ... isl_2_loc_1_sfs_n-1`
-  
-  `...`
-  
+  `isl_1_loc_1_sfs_1 isl_1_loc_1_sfs_2 ... isl_1_loc_1_sfs_n-1`    
+  `isl_1_loc_2_sfs_1 isl_1_loc_2_sfs_2 ... isl_1_loc_2_sfs_n-1`  
+  `...`  
+  `isl_1_loc_m_sfs_1 isl_1_loc_m_sfs_2 ... isl_1_loc_m_sfs_n-1`  
+  `isl_2_loc_1_sfs_1 isl_2_loc_1_sfs_2 ... isl_2_loc_1_sfs_n-1`  
+  `...`  
   `isl_l_loc_m_sfs_1 isl_l_loc_m_sfs_2 ... isl_l_loc_m_sfs_n-1`
 
 when the simulation consists of `m` loci, `l` islands, and a total sample size (across all islands) of `n`. Methods for returning similar lists of pooled (across islands) normalised SFSs, branch lengths, as well as SFSs simulated with a fixed number of mutations (as opposed to a fixed mutation rate) have also been implemented as `ancestry.print_normalised_sfs`, `ancestry.print_normalised_branch_lengths`, and `ancestry.fixed_s`, respectively.
@@ -36,13 +30,13 @@ The change_times parameter lets the user specify times (in generations) for jump
 # Citation
 If you use Beta-Xi-Sim in your work or wish to refer to it, please cite the following accompanying article:
 
-@article{Koskela:2018:SAGMB:20170011,
-  author =	"Jere Koskela",
-  title =	"Multi-locus data distinguishes between population growth and multiple merger coalescents,
-  journal =	"Statistical Applications in Genetics and Molecular Biology",
-  volume =	"17",
-  number =	"3",
-  pages =	"20170011",
-  year = 	"2018",
-  URL =  	"https://www.degruyter.com/view/j/sagmb.2018.17.issue-3/sagmb-2017-0011/sagmb-2017-0011.xml"
-}
+`@article{Koskela:2018:SAGMB:20170011,`  
+  `author =	"Jere Koskela",`  
+  `title =	"Multi-locus data distinguishes between population growth and multiple merger coalescents,`  
+  `journal =	"Statistical Applications in Genetics and Molecular Biology",`  
+  `volume =	"17",`  
+  `number =	"3",`  
+  `pages =	"20170011",`  
+  `year = 	"2018",`  
+  `URL =  	"https://www.degruyter.com/view/j/sagmb.2018.17.issue-3/sagmb-2017-0011/sagmb-2017-0011.xml"`  
+}`
