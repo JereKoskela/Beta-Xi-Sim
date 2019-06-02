@@ -321,24 +321,21 @@ struct Ancestry {
         return;
     }
     
-    void reset(const char *filename) {
-        libconfig::Config cfg; 
-        cfg.readFile(filename);
-        const libconfig::Setting &root = cfg.getRoot();
+    void reset() {
         active_branches.clear();
         int count, last_index = 0;
         std::vector<std::vector<int> > within_island_tmp(number_of_loci);
         std::vector<int> within_locus_tmp(0);
         for (int i = 0; i < number_of_islands; i++) {
-            count = root["sample_sizes"][i];
+            count = sample_size[i];
             if ((int)within_locus_tmp.size() != count) {
                 within_locus_tmp.resize(count);
             }
             for (int l = 0; l < number_of_loci; l++) {
                 for (int k = 0; k < count; k++) {
-                    within_locus_tmp[k] = last_index + k;
+                    within_locus_tmp[k] = last_index;
+                    last_index++;
                 }
-                last_index = within_locus_tmp.back();
                 within_island_tmp[l] = within_locus_tmp;
             }
             active_branches.push_back(within_island_tmp);

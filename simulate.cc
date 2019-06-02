@@ -14,8 +14,8 @@ int main(int argc, char **argv) {
         ancestry.print_normalised_sfs_by_island();
         //ancestry.print_normalised_sfs();
         //ancestry.print_fixed_s(50);
-        //print_normalised_branch_lengths();
-        ancestry.reset(argv[1]);
+        //ancestry.print_normalised_branch_lengths();
+        ancestry.reset();
     }
     return 1;
 }
