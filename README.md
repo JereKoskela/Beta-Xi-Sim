@@ -2,7 +2,7 @@
 An efficient simulator for ancestries of multiple unlinked loci driven by Beta-Xi-coalescents with exponential population growth. Valid for any number of loci and sample sizes &lt; 10 000.
 
 # Compilation and usage
-In Unix-like environments, compile Beta-Xi-Sim by navigating into the directory to which you've downloaded the source files source files, and calling `make`. The programme can then be called as `./simulate path_to_config_file`. An example config file is provided in `dev.cfg`. Any custom config files must conform to the same format!
+In Unix-like environments, compile Beta-Xi-Sim by navigating into the directory to which you've downloaded the source files and calling `make`. The programme can then be called as `./simulate path_to_config_file nrep`. An example config file is provided in `dev.cfg`. All config files must conform to the same format!
 
 # User interface
 Parameters can be specified via a text file interface (see provided `dev.cfg` for an example).
@@ -27,6 +27,11 @@ Currently implemented are crossover recombination within loci, spatial structure
 # Epochs
 The change_times parameter lets the user specify times (in generations) for jump discontinuities in simulation parameters. Relative population sizes across islands, population growth rates, weak selection parameters, and migration rates can vary in this way. All of these parameters must be specified for all epochs (even when they don't change between two epochs) as outlined in dev.cfg. Phylogenetic species trees can be simulated by specifying multiple islands, initially with migration rates set to zero, provided that all islands communicate with positive rate eventually. 
 
+# A note on scaling
+Beta-Xi-Sim simulates diploid, biparental, single-sex reproduction. The effective population size provided in the config file is treated as the number of families in the population for purposes of parameter scaling. Thus, simulations will contain ineffective coalescences, where individuals are born to a common family but no material coalesces to a common ancestor. The, for example, a Kingman coalescent simulation (setting `alpha = 2` in the config) will result in effective pairwise mergers at a population-rescaled rate of 1/2 per pair, as opposed to 1. This needs to be taken into account if Beta-Xi-Sim is used in conjunction with other software which assumes Kingman mergers to take place at rate 1.
+
+Relatedly, Beta-Xi-Sim uses the provided effective population size `N` to scale other parameters. Many other sofware packages use other quantities, such as `4N` in [Hudson's `ms`](http://home.uchicago.edu/~rhudson1/source/mksamples.html "http://home.uchicago.edu/~rhudson1/source/mksamples.html"). This also needs to be accounted for when comparing simulation output.
+
 # Citation
 If you use Beta-Xi-Sim in your work or wish to refer to it, please cite the following accompanying article:
 
@@ -40,3 +45,5 @@ If you use Beta-Xi-Sim in your work or wish to refer to it, please cite the foll
   `year = "2018",`  
   `URL = "https://www.degruyter.com/view/j/sagmb.2018.17.issue-3/sagmb-2017-0011/sagmb-2017-0011.xml"`  
 `}`
+
+Thanks to Iulia Dahmer and Bjarki Eldon for their help with documentation and verification.
