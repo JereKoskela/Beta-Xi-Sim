@@ -453,8 +453,8 @@ struct Ancestry {
                 active_branches[island][i].push_back(branches.size() + 1);
                 branches.insert(branches.end(), 2, tmp);
                 gsl_matrix_set(per_island_locus_recomb_rates, island, i, 
-                    gsl_matrix_get(per_island_locus_recomb_rates, island, 
-                    locus) + recombination_rate(branches.size() - 1) 
+                    gsl_matrix_get(per_island_locus_recomb_rates, island, i) 
+                    + recombination_rate(branches.size() - 1) 
                     + recombination_rate(branches.size() - 2));
             }
         }
@@ -977,6 +977,59 @@ struct Ancestry {
             for (int j = 0; j < total_sample_size - 1; j++) {
                 total += (double)sfs[i][j];
             }
+            if (total > 0.0) {
+                for (int j = 0; j < total_sample_size - 1; j++) {
+                    std::cout << (double)sfs[i][j] / total << " ";
+                }
+            } else {
+                for (int j = 0; j < total_sample_size - 1; j++) {
+                    std::cout << "0 ";
+                }
+            }
+            std::cout << std::endl;
+        }
+        return;
+    }
+    
+        void print_normalised_sfs_with_number_of_sites() const {
+        // =================================================
+        // This function assumes fill_orders() has been run!
+        // =================================================
+        std::vector<int> tmp(total_sample_size - 1, 0);
+        std::vector<std::vector<int> > sfs(number_of_loci, tmp);
+        int loc = 0, ord = 0;
+        double mid = 0.0, rate = 0.0;
+        for (unsigned int i = 0; i < branches.size(); i++) {
+            if (branches[i].virtual_flag == 0 && branches[i].parents.size() > 0) {
+                loc = branches[i].locus;
+                for (int j = 0; j < (int)break_points[loc].size() - 1; j++) {
+                    mid = (break_points[loc][j + 1] + break_points[loc][j])/ 2.0;
+                    if (branches[i].contains(mid) == 1) {
+                        rate = 2.0 * mid * mutation_rates[loc];
+                        rate *= branches[branches[i].parents[0]].leaf_time 
+                            - branches[i].leaf_time;
+                        ord = 0;
+                        for (int k = 0; k < number_of_islands; k++) {
+                            ord += branches[i].order[j][k];
+                        }
+                        if (ord > 0) {
+                            // zero intervals can arise if a partial chromosome 
+                            // branches due to selection - the virtual branches
+                            // carry tracked material which nevertheless has zero
+                            // descendants in the leaves
+                            sfs[loc][ord - 1] += gsl_ran_poisson(gen, rate);
+                        }
+                    }
+                }
+            }
+        }
+        double total = 0.0;
+        for (int i = 0; i < number_of_loci; i++) {
+            total = 0.0;
+            for (int j = 0; j < total_sample_size - 1; j++) {
+                total += (double)sfs[i][j];
+            }
+            std::cout << total << " ";
             if (total > 0.0) {
                 for (int j = 0; j < total_sample_size - 1; j++) {
                     std::cout << (double)sfs[i][j] / total << " ";

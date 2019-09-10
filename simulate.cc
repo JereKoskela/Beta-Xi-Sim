@@ -13,6 +13,7 @@ int main(int argc, char **argv) {
         ancestry.simulate();
         ancestry.print_normalised_sfs_by_island();
         //ancestry.print_normalised_sfs();
+        //ancestry.print_normalised_sfs_with_number_of_sites();
         //ancestry.print_fixed_s(50);
         //ancestry.print_normalised_branch_lengths();
         ancestry.reset();
