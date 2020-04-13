@@ -897,11 +897,10 @@ struct Ancestry {
             if (branches[i].virtual_flag == 0 && branches[i].parents.size() > 0) {
                 loc = branches[i].locus;
                 for (int j = 0; j < (int)break_points[loc].size() - 1; j++) {
-                    mid = (break_points[loc][j + 1] + break_points[loc][j])/ 2.0;
+                    mid = (break_points[loc][j + 1] + break_points[loc][j]) / 2.0;
                     if (branches[i].contains(mid) == 1) {
-                        rate = 2.0 * mid * mutation_rates[loc];
-                        rate *= branches[branches[i].parents[0]].leaf_time 
-                            - branches[i].leaf_time;
+                        rate = (break_points[loc][j + 1] - break_points[loc][j]) * mutation_rates[loc]
+                            * (branches[branches[i].parents[0]].leaf_time - branches[i].leaf_time);
                         for (int k = 0; k < number_of_islands; k++) {
                             if (branches[i].order[j][k] > 0 && branches[i].order[j][k] < sample_size[k]) {
                                 // zero intervals can arise if a partial chromosome 
@@ -951,11 +950,10 @@ struct Ancestry {
             if (branches[i].virtual_flag == 0 && branches[i].parents.size() > 0) {
                 loc = branches[i].locus;
                 for (int j = 0; j < (int)break_points[loc].size() - 1; j++) {
-                    mid = (break_points[loc][j + 1] + break_points[loc][j])/ 2.0;
+                    mid = (break_points[loc][j + 1] + break_points[loc][j]) / 2.0;
                     if (branches[i].contains(mid) == 1) {
-                        rate = 2.0 * mid * mutation_rates[loc];
-                        rate *= branches[branches[i].parents[0]].leaf_time 
-                            - branches[i].leaf_time;
+                        rate = (break_points[loc][j + 1] - break_points[loc][j]) * mutation_rates[loc]
+                            * (branches[branches[i].parents[0]].leaf_time - branches[i].leaf_time);
                         ord = 0;
                         for (int k = 0; k < number_of_islands; k++) {
                             ord += branches[i].order[j][k];
@@ -1003,11 +1001,10 @@ struct Ancestry {
             if (branches[i].virtual_flag == 0 && branches[i].parents.size() > 0) {
                 loc = branches[i].locus;
                 for (int j = 0; j < (int)break_points[loc].size() - 1; j++) {
-                    mid = (break_points[loc][j + 1] + break_points[loc][j])/ 2.0;
+                    mid = (break_points[loc][j + 1] + break_points[loc][j]) / 2.0;
                     if (branches[i].contains(mid) == 1) {
-                        rate = 2.0 * mid * mutation_rates[loc];
-                        rate *= branches[branches[i].parents[0]].leaf_time 
-                            - branches[i].leaf_time;
+                        rate = (break_points[loc][j + 1] - break_points[loc][j]) * mutation_rates[loc]
+                            * (branches[branches[i].parents[0]].leaf_time - branches[i].leaf_time);
                         ord = 0;
                         for (int k = 0; k < number_of_islands; k++) {
                             ord += branches[i].order[j][k];
@@ -1056,10 +1053,10 @@ struct Ancestry {
             if (branches[i].virtual_flag == 0 && branches[i].parents.size() > 0) {
                 loc = branches[i].locus;
                 for (int j = 0; j < (int)break_points[loc].size() - 1; j++) {
-                    mid = (break_points[loc][j + 1] + break_points[loc][j])/ 2.0;
+                    mid = (break_points[loc][j + 1] + break_points[loc][j]) / 2.0;
                     if (branches[i].contains(mid) == 1) {
-                        rate = 2.0 * mid * (branches[branches[i].parents[0]].leaf_time 
-                            - branches[i].leaf_time);
+                        rate = (break_points[loc][j + 1] - break_points[loc][j])
+                            * (branches[branches[i].parents[0]].leaf_time - branches[i].leaf_time);
                         ord = 0;
                         for (int k = 0; k < number_of_islands; k++) {
                             ord += branches[i].order[j][k];
@@ -1108,10 +1105,10 @@ struct Ancestry {
             if (branches[i].virtual_flag == 0 && branches[i].parents.size() > 0) {
                 loc = branches[i].locus;
                 for (int j = 0; j < (int)break_points[loc].size() - 1; j++) {
-                    mid = (break_points[loc][j + 1] + break_points[loc][j])/ 2.0;
+                    mid = (break_points[loc][j + 1] + break_points[loc][j]) / 2.0;
                     if (branches[i].contains(mid) == 1) {
-                        rate = 2.0 * mid * (branches[branches[i].parents[0]].leaf_time 
-                            - branches[i].leaf_time);
+                        rate = (break_points[loc][j + 1] - break_points[loc][j])
+                            * (branches[branches[i].parents[0]].leaf_time - branches[i].leaf_time);
                         ord = 0;
                         for (int k = 0; k < number_of_islands; k++) {
                             ord += branches[i].order[j][k];
