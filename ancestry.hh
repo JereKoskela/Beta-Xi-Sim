@@ -374,7 +374,7 @@ struct Ancestry {
                     * (active_branches[island][i].size() - 1)) / 2.0;
             }
             ret = 0.0;
-            if (impact > 1e-4) {
+            if (impact > 1e-9) {
                 for (int i = 0; i < number_of_loci; i++) {
                     n = double(active_branches[island][i].size() - 1);
                     ret += n * log(1.0 - impact) + log(1.0 + n * impact);
@@ -383,13 +383,24 @@ struct Ancestry {
                     - log(pairs));
             } else {
                 int j = 0;
+                double tmp = 0.0;
                 for (int i = 0; i < number_of_loci; i++) {
                     j = int(active_branches[island][i].size());
                     for (int k = 2; k <= j; k += 2) {
-                        ret += (k - 1) * exp(gsl_sf_lnchoose(j, k) + (k - 2) * log(impact));
+                        tmp = (k - 1) * exp(gsl_sf_lnchoose(j, k)
+                            + (k - 2) * log(impact));
+                        if (tmp / ret < 1e-12) {
+                            break;
+                        }
+                        ret += tmp;
                     }
                     for (int k = 3; k <= j; k += 2) {
-                        ret -= (k - 1) * exp(gsl_sf_lnchoose(j, k) + (k - 2) * log(impact));
+                        tmp = (k - 1) * exp(gsl_sf_lnchoose(j, k)
+                            + (k - 2) * log(impact));
+                        if (tmp / ret < 1e-12) {
+                            break;
+                        }
+                        ret -= tmp;
                     }
                 }
                 ret /= pairs;
