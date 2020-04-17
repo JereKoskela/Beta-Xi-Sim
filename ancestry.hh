@@ -368,32 +368,31 @@ struct Ancestry {
         double ret = 1.0;
         if (alpha < 2.0) {
             double n = 0.0;
-            double pairs = (double)(active_branches[island][0].size()
-                * (active_branches[island][0].size() - 1)) / 2.0;
-            for (int i = 1; i < number_of_loci; i++) {
-                pairs += (double)(active_branches[island][i].size() 
+            double pairs = 0.0;
+            for (int i = 0; i < number_of_loci; i++) {
+                pairs += double(active_branches[island][i].size() 
                     * (active_branches[island][i].size() - 1)) / 2.0;
             }
+            ret = 0.0;
             if (impact > 1e-4) {
-                ret = 0.0;
                 for (int i = 0; i < number_of_loci; i++) {
-                    n = (double)(active_branches[island][i].size() - 1);
+                    n = double(active_branches[island][i].size() - 1);
                     ret += n * log(1.0 - impact) + log(1.0 + n * impact);
                 }
                 ret = exp(log(1.0 - exp(ret)) - 2.0 * log(impact) 
                     - log(pairs));
             } else {
-                ret = impact * (double)(active_branches[island][0].size()
-                    * (active_branches[island][0].size() - 1)
-                    * (active_branches[island][0].size() - 2)) 
-                    / (3.0 * pairs);
-                for (int i = 1; i < number_of_loci; i++) {
-                    ret += impact * (double)(active_branches[island][i].size()
-                        * (active_branches[island][i].size() - 1)
-                        * (active_branches[island][i].size() - 2)) 
-                        / (3.0 * pairs);
+                int j = 0;
+                for (int i = 0; i < number_of_loci; i++) {
+                    j = int(active_branches[island][i].size());
+                    for (int k = 2; k <= j; k += 2) {
+                        ret += (k - 1) * exp(gsl_sf_lnchoose(j, k) + (k - 2) * log(impact));
+                    }
+                    for (int k = 3; k <= j; k += 2) {
+                        ret -= (k - 1) * exp(gsl_sf_lnchoose(j, k) + (k - 2) * log(impact));
+                    }
                 }
-                ret = 1.0 - ret;
+                ret /= pairs;
             }
         }
         return ret;
@@ -528,8 +527,11 @@ struct Ancestry {
             int size_at_locus = 0;
             for (int l = 0; l < number_of_loci; l++) {
                 if (l == locus) {
-                    size_at_locus = 2 + gsl_ran_binomial(gen, impact, 
-                        active_branches[island][l].size() - 2);
+                    do {
+                        size_at_locus = 2 + gsl_ran_binomial(gen, impact, 
+                            active_branches[island][l].size() - 2);
+                    } while (gsl_rng_uniform(gen) > 
+                        1 / gsl_sf_choose(size_at_locus, 2));
                 } else {
                     size_at_locus = gsl_ran_binomial(gen, impact, 
                         active_branches[island][l].size());
