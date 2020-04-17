@@ -1,5 +1,5 @@
 # Beta-Xi-Sim
-An efficient simulator for ancestries of multiple unlinked loci driven by Beta-Xi-coalescents with exponential population growth. Valid for any number of loci and sample sizes &lt; 10 000.
+An efficient simulator for ancestries of multiple unlinked loci driven by Beta-Xi-coalescents with exponential population growth.
 
 # Compilation and usage
 In Unix-like environments, compile Beta-Xi-Sim by navigating into the directory to which you've downloaded the source files and calling `make`. The programme can then be called as `./simulate path_to_config_file nrep`. An example config file is provided in `dev.cfg`. All config files must conform to the same format!
@@ -46,4 +46,4 @@ If you use Beta-Xi-Sim in your work or wish to refer to it, please cite the foll
   `URL = "https://www.degruyter.com/view/j/sagmb.2018.17.issue-3/sagmb-2017-0011/sagmb-2017-0011.xml"`  
 `}`
 
-Thanks to Iulia Dahmer and Bjarki Eldon for their help with documentation and verification.
+Thanks to Iulia Dahmer, Bjarki Eldon, and Thibaut Sellinger for their help with documentation and verification.
