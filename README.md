@@ -1,17 +1,17 @@
 # Beta-Xi-Sim
 An efficient simulator for ancestries of multiple unlinked loci driven by Beta-Xi-coalescents with exponential population growth.
 
-# Compilation and usage
-In Unix-like environments, compile Beta-Xi-Sim by navigating into the directory to which you've downloaded the source files and calling `make`. The programme can then be called as `./simulate path_to_config_file nrep`. An example config file is provided in `dev.cfg`. All config files must conform to the same format!
+## Compilation and usage
+In Unix-like environments, compile Beta-Xi-Sim by navigating into the directory to which you've downloaded the source files and calling `make`. Compilation should take no more than a few seconds. The program can then be called as `./simulate path_to_config_file nrep`. An example config file is provided in `dev.cfg`. All config files must conform to the same format!
 
-# Dependencies
+## Dependencies
 Beta-Xi-Sim has been tested on Kubuntu 18.04 using the g++ 7.5.0 compiler. To run, it requires a copy of the Gnu Scientific Library (tested on version 2.4).
 
-# User interface
+## User interface
 Parameters can be specified via a text file interface (see provided `dev.cfg` for an example).
 More powerful customisation, such as arbitrary fitness functions and recombination maps, can be done by specifying the user-defined functions at the top of the Ancestry struct in `ancestry.hh`.
 
-# Output
+## Output
 The software outputs a space-delimited, normalised site frequency spectrum (SFS) for each island and each locus. If isl_i_loc_j_sfs_k denotes the kth entry of the SFS for locus j, on island i, then the output format is
 
   `isl_1_loc_1_sfs_1 isl_1_loc_1_sfs_2 ... isl_1_loc_1_sfs_n-1`    
@@ -24,18 +24,28 @@ The software outputs a space-delimited, normalised site frequency spectrum (SFS)
 
 when the simulation consists of `m` loci, `l` islands, and a total sample size (across all islands) of `n`. Methods for returning similar lists of pooled (across islands) normalised SFSs, branch lengths, as well as SFSs simulated with a fixed number of mutations (as opposed to a fixed mutation rate) have also been implemented as `ancestry.print_normalised_sfs`, `ancestry.print_normalised_branch_lengths`, and `ancestry.fixed_s`, respectively.
 
-# Genetic forces
+## Genetic forces
 Currently implemented are crossover recombination within loci, spatial structure with migration on an arbitrary finite graph, and weak natural selection with fitness depending on the full genotype of both parents, as well as their geographical location. Simulating more than one island without migration will result in an infinite loop as the most recent common ancestor of the whole sample cannot be reached, unless only one island has a positive sample size.
 
-# Epochs
+## Epochs
 The change_times parameter lets the user specify times (in generations) for jump discontinuities in simulation parameters. Relative population sizes across islands, population growth rates, weak selection parameters, and migration rates can vary in this way. All of these parameters must be specified for all epochs (even when they don't change between two epochs) as outlined in dev.cfg. Phylogenetic species trees can be simulated by specifying multiple islands, initially with migration rates set to zero, provided that all islands communicate with positive rate eventually. 
 
-# A note on scaling
+## A note on scaling
 Beta-Xi-Sim simulates diploid, biparental, single-sex reproduction. The effective population size provided in the config file is treated as the number of families in the population for purposes of parameter scaling. Thus, simulations will contain ineffective coalescences, where individuals are born to a common family but no material coalesces to a common ancestor. The, for example, a Kingman coalescent simulation (setting `alpha = 2` in the config) will result in effective pairwise mergers at a population-rescaled rate of 1/2 per pair, as opposed to 1. This needs to be taken into account if Beta-Xi-Sim is used in conjunction with other software which assumes Kingman mergers to take place at rate 1.
 
 Relatedly, Beta-Xi-Sim uses the provided effective population size `N` to scale other parameters. Many other sofware packages use other quantities, such as `4N` in [Hudson's `ms`](http://home.uchicago.edu/~rhudson1/source/mksamples.html "http://home.uchicago.edu/~rhudson1/source/mksamples.html"). This also needs to be accounted for when comparing simulation output.
 
-# Citation
+## Example
+The cod example file contains an example simulation comparing various simulated scenarios to an observed SFS given in `demo.sfs.out`. Follow these steps to run the example:
+1. Extract the config files into the `cod-example/configs` folder.
+2. Run the `cod-158-exp.sh` and `cod-158-xi.sh` shell scripts by calling e.g. `sh cod-158-exp.sh`. They typically take 2-3 hours to complete, but are independent and can be run in parallel.
+3. Run the `cod-contour.R`, `cod-likelihood.R`, and `cod-power.R` R scripts. They have been composed on RStudio 1.3.1073 using R 4.0.2. The first two also depend on the [`ks` package](https://cran.r-project.org/web/packages/ks/index.html) (tested on version 1.11.7). Each script will take several minutes to run on a typical PC.
+
+The `cod-example/singleton-error-model` folder contains a further demonstration of a model for assessing the impact of errors in observed singleton entries of the SFS.
+
+These examples are part of a preprint currently undergoing peer review. Full citation information to a description of the simulations will appear here in due course.
+
+## Citation
 If you use Beta-Xi-Sim in your work or wish to refer to it, please cite the following accompanying article:
 
 `@article{Koskela:2018:SAGMB:20170011,`  
