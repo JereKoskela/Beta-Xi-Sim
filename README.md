@@ -4,6 +4,9 @@ An efficient simulator for ancestries of multiple unlinked loci driven by Beta-X
 # Compilation and usage
 In Unix-like environments, compile Beta-Xi-Sim by navigating into the directory to which you've downloaded the source files and calling `make`. The programme can then be called as `./simulate path_to_config_file nrep`. An example config file is provided in `dev.cfg`. All config files must conform to the same format!
 
+# Dependencies
+Beta-Xi-Sim has been tested on Kubuntu 18.04 using the g++ 7.5.0 compiler. To run, it requires a copy of the Gnu Scientific Library (tested on version 2.4).
+
 # User interface
 Parameters can be specified via a text file interface (see provided `dev.cfg` for an example).
 More powerful customisation, such as arbitrary fitness functions and recombination maps, can be done by specifying the user-defined functions at the top of the Ancestry struct in `ancestry.hh`.
