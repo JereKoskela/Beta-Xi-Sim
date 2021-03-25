@@ -38,7 +38,7 @@ Relatedly, Beta-Xi-Sim uses the provided effective population size `N` to scale 
 ## Example
 The cod example file contains an example simulation comparing various simulated scenarios to an observed SFS given in `demo.sfs.out`. Follow these steps to run the example:
 1. Extract the config files into the `cod-example/configs` folder.
-2. Run the `cod-158-exp.sh` and `cod-158-xi.sh` shell scripts by calling e.g. `sh cod-158-exp.sh`. They typically take 2-3 hours to complete, but are independent and can be run in parallel.
+2. Run the `cod-136-exp.sh` and `cod-136-xi.sh` shell scripts by calling e.g. `sh cod-136-exp.sh`. They typically take 2-3 hours to complete, but are independent and can be run in parallel.
 3. Run the `cod-contour.R`, `cod-likelihood.R`, and `cod-power.R` R scripts. They have been composed on RStudio 1.3.1073 using R 4.0.2. The first two also depend on the [`ks` package](https://cran.r-project.org/web/packages/ks/index.html) (tested on version 1.11.7). Each script will take several minutes to run on a typical PC.
 
 The `cod-example/singleton-error-model` folder contains a further demonstration of a model for assessing the impact of errors in observed singleton entries of the SFS.
