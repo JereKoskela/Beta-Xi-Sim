@@ -7,18 +7,14 @@ require(ks)
 rep <- 1000
 loci <- 23
 locs <- 1:loci
-n <- 158
+n <- 136
 cutoff <- 15
-lambda_size <- 41
+lambda_size <- 101
 lambda <- matrix(rep(NA, lambda_size * 2 * rep), ncol = 2)
 tmp <- matrix(rep(NA, lambda_size * loci * rep * 15), ncol = 15)
 
 for (i in 1:lambda_size) {
-  if (i < lambda_size) {
-    filename <- paste("./sim-output/xi_1",substr((i-1)/40,3,nchar((i-1)/40)),".txt",sep="")
-  } else {
-    filename <- paste("./sim-output/xi_2.txt",sep="")
-  }
+  filename <- paste("./sim-output/xi_", sprintf(1 + (i - 1) / (lambda_n - 1), fmt = '%#.2f'), ".txt", sep="")
   tmp <- as.matrix(read.table(filename))[,1:15]
   tmp[,15] <- 1 - rowSums(tmp[,1:14])
   for (j in 1:rep) {
